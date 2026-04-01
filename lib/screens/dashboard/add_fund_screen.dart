@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../core/constants/app_colors.dart';
-import 'binance_payment_screen.dart';
-import 'manual_payment_screen.dart';
+import 'payment_portal_screen.dart';
 
 class AddFundScreen extends StatefulWidget {
   const AddFundScreen({super.key});
@@ -17,41 +17,64 @@ class _AddFundScreenState extends State<AddFundScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Funds')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Add Funds', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Get.back(),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Enter Amount', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Enter Amount (USD)',
+              style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.attach_money, color: AppColors.primary),
+              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.attach_money, color: AppColors.secondary),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                 hintText: '0.00',
+                hintStyle: const TextStyle(color: Colors.white24),
               ),
             ),
             const SizedBox(height: 32),
-            const Text('Select Payment Method', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _methodTile('binance', 'Binance USDT (Auto)', Icons.account_balance_wallet, AppColors.primary),
+            const Text(
+              'Select Initial Method',
+              style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            _methodTile('binance', 'Binance USDT (Auto)', Icons.currency_bitcoin_rounded, Colors.orange),
             const SizedBox(height: 12),
             _methodTile('manual', 'Bkash / Nagad (Manual)', Icons.phone_android, AppColors.secondary),
             const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: () {
-                final amount = double.tryParse(_amountController.text) ?? 0;
-                if (amount <= 0) return;
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () {
+                  final amount = double.tryParse(_amountController.text) ?? 0;
+                  if (amount <= 0) {
+                    Get.snackbar('Error', 'Please enter a valid amount', snackPosition: SnackPosition.BOTTOM, backgroundColor: AppColors.error, colorText: Colors.white);
+                    return;
+                  }
 
-                if (_selectedMethod == 'binance') {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => BinancePaymentScreen(amount: amount)));
-                } else {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => ManualPaymentScreen(amount: amount)));
-                }
-              },
-              child: const Text('CONTINUE'),
+                  Get.to(() => PaymentPortalScreen(amount: amount));
+                },
+                child: const Text('CONTINUE TO CHECKOUT', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
             ),
           ],
         ),
@@ -59,23 +82,26 @@ class _AddFundScreenState extends State<AddFundScreen> {
     );
   }
 
-  Widget _methodTile(String id, String title, IconData icon, Color color) {
-    final isSelected = _selectedMethod == id;
+  Widget _methodTile(String id, String name, IconData icon, Color color) {
+    bool isSelected = _selectedMethod == id;
     return InkWell(
       onTap: () => setState(() => _selectedMethod = id),
+      borderRadius: BorderRadius.circular(15),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: isSelected ? color.withOpacity(0.1) : AppColors.surface,
           borderRadius: BorderRadius.circular(15),
-          border: isSelected ? Border.all(color: color, width: 2) : null,
+          border: Border.all(color: isSelected ? color : Colors.transparent, width: 2),
         ),
         child: Row(
           children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 15),
-            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
-            if (isSelected) Icon(Icons.check_circle, color: color),
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            if (isSelected) Icon(Icons.check_circle, color: color, size: 24),
           ],
         ),
       ),

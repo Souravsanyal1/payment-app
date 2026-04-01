@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "592340847842",
+    "firebase_url": "https://ytra-4f1be-default-rtdb.firebaseio.com",
     "project_id": "ytra-4f1be",
     "storage_bucket": "ytra-4f1be.firebasestorage.app"
   },
@@ -13,6 +14,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "592340847842-o62p4qb2d8p3n5oqc4q0e2ldrhc9mqnl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.untitled",
+            "certificate_hash": "fa292f6f1524299e6f1c7d92ecd1c6fef96df04e"
+          }
+        },
         {
           "client_id": "592340847842-tujqqakc8r5cpgem4utchn1pqee22svt.apps.googleusercontent.com",
           "client_type": 3
@@ -29,6 +38,13 @@
             {
               "client_id": "592340847842-tujqqakc8r5cpgem4utchn1pqee22svt.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "592340847842-brqrvjepl5t0r6queappan61dksut5nm.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.untitled"
+              }
             }
           ]
         }

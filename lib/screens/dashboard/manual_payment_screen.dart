@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import '../../core/constants/app_colors.dart';
+import '../../controllers/auth_controller.dart';
 import '../../services/firestore_service.dart';
-import '../../services/auth_service.dart';
 
 class ManualPaymentScreen extends StatefulWidget {
   final double amount;
@@ -15,8 +15,10 @@ class ManualPaymentScreen extends StatefulWidget {
 class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
   final _trxController = TextEditingController();
   final _firestore = FirestoreService();
-  String _gateway = 'bkash';
-  bool _isSubmitting = false;
+  final AuthController _authController = Get.find();
+  
+  var _gateway = 'bkash'.obs;
+  var _isSubmitting = false.obs;
 
   final Map<String, String> _gatewayNumbers = {
     'bkash': '017xx-xxxxxx',
@@ -24,42 +26,32 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
     'rocket': '019xx-xxxxxx',
   };
 
-  Future<void> _submit() async {
+  void _submit() async {
     if (_trxController.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid Transaction ID'), backgroundColor: AppColors.error),
-      );
+      Get.snackbar('Error', 'Please enter a valid Transaction ID', snackPosition: SnackPosition.BOTTOM, backgroundColor: AppColors.error, colorText: Colors.white);
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    _isSubmitting.value = true;
     try {
-      final auth = Provider.of<AuthService>(context, listen: false);
+      final userModel = await _firestore.getUser(_authController.firebaseUser!.uid);
+      
       await _firestore.logTransaction(
-        auth.user!.uid,
-        widget.amount,
-        'manual_deposit ($_gateway)',
-        'pending', // Matches Admin query
-        _trxController.text,
+        uid: _authController.firebaseUser!.uid,
+        name: userModel.name,
+        email: userModel.email,
+        amount: widget.amount,
+        type: 'manual_deposit (${_gateway.value})',
+        status: 'pending',
+        trxId: _trxController.text,
       );
       
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Request Submitted! Pending Admin Approval.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
+      Get.back();
+      Get.snackbar('Success', 'Request Submitted! Pending Admin Approval.', snackPosition: SnackPosition.TOP, backgroundColor: AppColors.success, colorText: Colors.white);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-        );
-      }
+      Get.snackbar('Error', 'Error: $e', snackPosition: SnackPosition.BOTTOM, backgroundColor: AppColors.error, colorText: Colors.white);
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      _isSubmitting.value = false;
     }
   }
 
@@ -73,7 +65,7 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
       ),
       body: SingleChildScrollView(
@@ -83,7 +75,7 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
             const SizedBox(height: 20),
             _buildAmountHeader(),
             const SizedBox(height: 40),
-            _buildInstructionCard(),
+            Obx(() => _buildInstructionCard()),
             const SizedBox(height: 40),
             _buildGatewaySelector(),
             const SizedBox(height: 30),
@@ -132,7 +124,7 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
           const SizedBox(width: 15),
           Expanded(
             child: Text(
-              'Send Money To: ${_gatewayNumbers[_gateway]}\nUsing Cash Out or Send Money.',
+              'Send Money To: ${_gatewayNumbers[_gateway.value]}\nUsing Cash Out or Send Money.',
               style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
             ),
           ),
@@ -159,29 +151,31 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
   }
 
   Widget _gatewayItem(String id, String name) {
-    final bool isSelected = _gateway == id;
     return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _gateway = id),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.secondary.withOpacity(0.1) : AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: isSelected ? AppColors.secondary : Colors.white.withOpacity(0.05)),
-          ),
-          child: Center(
-            child: Text(
-              name,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? AppColors.secondary : Colors.white38,
+      child: Obx(() {
+        final bool isSelected = _gateway.value == id;
+        return InkWell(
+          onTap: () => _gateway.value = id,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.secondary.withOpacity(0.1) : AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isSelected ? AppColors.secondary : Colors.white.withOpacity(0.05)),
+            ),
+            child: Center(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? AppColors.secondary : Colors.white38,
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 
@@ -216,17 +210,17 @@ class _ManualPaymentScreenState extends State<ManualPaymentScreen> {
     return SizedBox(
       width: double.infinity,
       height: 55,
-      child: ElevatedButton(
-        onPressed: _isSubmitting ? null : _submit,
+      child: Obx(() => ElevatedButton(
+        onPressed: _isSubmitting.value ? null : _submit,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.secondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 5,
         ),
-        child: _isSubmitting 
+        child: _isSubmitting.value 
           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
           : const Text('SUBMIT TRANSACTION', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-      ),
+      )),
     );
   }
 }

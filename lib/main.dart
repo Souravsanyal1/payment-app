@@ -1,51 +1,54 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'core/theme/app_theme.dart';
-import 'services/auth_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'core/constants/app_colors.dart';
+import 'controllers/auth_controller.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
-import 'firebase_options.dart';
+import 'screens/dashboard/admin_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint('Firebase Initialization Error: $e');
-  }
-  runApp(const RoyelPayApp());
+  await Firebase.initializeApp();
+  
+  // Initialize AuthController globally
+  Get.put(AuthController());
+  
+  runApp(const GuruPayApp());
 }
 
-class RoyelPayApp extends StatelessWidget {
-  const RoyelPayApp({super.key});
+class GuruPayApp extends StatelessWidget {
+  const GuruPayApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-      ],
-      child: MaterialApp(
-        title: 'RoyelPay',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark,
-        home: const AuthWrapper(),
+    return GetMaterialApp(
+      title: 'GURU-PAY',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: AppColors.background,
+        textTheme: GoogleFonts.outfitTextTheme(Theme.of(context).textTheme).apply(
+          bodyColor: Colors.white,
+          displayColor: Colors.white,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButtonThemeData().style?.copyWith(
+            backgroundColor: WidgetStateProperty.all(AppColors.primary),
+            shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+        ),
       ),
+      initialRoute: '/login',
+      getPages: [
+        GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(name: '/register', page: () => const RegisterScreen()),
+        GetPage(name: '/dashboard', page: () => const DashboardScreen()),
+        GetPage(name: '/admin', page: () => const AdminDashboardScreen()),
+      ],
     );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    return authService.isAuthenticated 
-        ? const DashboardScreen() 
-        : const LoginScreen();
   }
 }

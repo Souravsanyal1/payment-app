@@ -1,10 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import '../../core/constants/app_colors.dart';
-import '../../services/auth_service.dart';
+import '../../controllers/auth_controller.dart';
 import 'register_screen.dart';
-import '../dashboard/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,36 +15,19 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
-  bool _isLoading = false;
   bool _obscurePassword = true;
+  
+  final AuthController _authController = Get.find();
 
-  Future<void> _login() async {
-    if (_email.text.isEmpty || _password.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+  void _login() {
+    final email = _email.text.trim();
+    final password = _password.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      Get.snackbar('Error', 'Please fill all fields', snackPosition: SnackPosition.BOTTOM);
       return;
     }
-
-    setState(() => _isLoading = true);
-    try {
-      await Provider.of<AuthService>(context, listen: false).signIn(_email.text, _password.text);
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    _authController.login(email, password);
   }
 
   @override
@@ -86,10 +68,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'RoyelPay',
+                    'GURU-PAY',
                     style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.white),
                   ),
-                  const Text('Secure Gateway for Merchants', style: TextStyle(color: AppColors.textBody, fontSize: 13)),
+                  const Text('Premium Gateway for Financial Freedom', style: TextStyle(color: AppColors.textBody, fontSize: 13)),
                   const SizedBox(height: 60),
 
                   // Glass Card
@@ -121,22 +103,38 @@ class _LoginScreenState extends State<LoginScreen> {
                               onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                             const SizedBox(height: 40),
-                            SizedBox(
+                            Obx(() => SizedBox(
                               width: double.infinity,
                               height: 55,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : _login,
+                                onPressed: _authController.isLoading.value ? null : _login,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   elevation: 5,
                                   shadowColor: AppColors.primary.withOpacity(0.4),
                                 ),
-                                child: _isLoading 
+                                child: _authController.isLoading.value 
                                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
                                   : const Text('Login Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                               ),
-                            ),
+                            )),
+                            const SizedBox(height: 20),
+                            // Google Login Button
+                            Obx(() => SizedBox(
+                              width: double.infinity,
+                              height: 55,
+                              child: OutlinedButton.icon(
+                                onPressed: _authController.isLoading.value ? null : () => _authController.googleSignIn(),
+                                icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_\"G\"_logo.svg/1200px-Google_\"G\"_logo.svg.png', height: 22),
+                                label: const Text('Continue with Google', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  backgroundColor: Colors.white.withOpacity(0.05),
+                                ),
+                              ),
+                            )),
                           ],
                         ),
                       ),
@@ -145,10 +143,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   const SizedBox(height: 40),
                   TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                    onPressed: () => Get.to(() => const RegisterScreen()),
                     child: RichText(
                       text: const TextSpan(
-                        text: "New to RoyelPay? ",
+                        text: "New to GURU-PAY? ",
                         style: TextStyle(color: AppColors.textBody, fontSize: 14),
                         children: [
                           TextSpan(text: "Register Now", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
@@ -186,6 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: TextFormField(
             controller: controller,
             obscureText: obscure,
+            keyboardType: label.toLowerCase().contains('email') ? TextInputType.emailAddress : TextInputType.text,
             style: const TextStyle(color: Colors.white, fontSize: 15),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: Colors.white24, size: 20),

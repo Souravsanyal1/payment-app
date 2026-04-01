@@ -1,10 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import '../../core/constants/app_colors.dart';
-import '../../services/auth_service.dart';
-import '../../services/firestore_service.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../../controllers/auth_controller.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,42 +15,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _firestore = FirestoreService();
-  bool _isLoading = false;
+  final _referralCode = TextEditingController();
   bool _obscurePassword = true;
+  
+  final AuthController _authController = Get.find();
 
-  Future<void> _register() async {
-    if (_name.text.isEmpty || _email.text.isEmpty || _password.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+  @override
+  void initState() {
+    super.initState();
+    try {
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('ref')) {
+        _referralCode.text = uri.queryParameters['ref']!;
+      }
+    } catch (_) {}
+  }
+
+  void _register() {
+    final name = _name.text.trim();
+    final email = _email.text.trim();
+    final password = _password.text.trim();
+    final referral = _referralCode.text.trim();
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      Get.snackbar('Error', 'Please fill all fields', snackPosition: SnackPosition.BOTTOM);
       return;
     }
 
-    setState(() => _isLoading = true);
-    try {
-      final cred = await Provider.of<AuthService>(context, listen: false)
-          .signUp(_email.text, _password.text);
-      
-      if (cred?.user != null) {
-        await _firestore.createUser(cred!.user!.uid, _name.text, _email.text);
-        if (mounted) {
-           Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-            (route) => false,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    _authController.register(name, email, password, referrerId: referral.isEmpty ? null : referral);
   }
 
   @override
@@ -76,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           // Main Content
           Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 60),
               child: Column(
                 children: [
                   // Logo Section
@@ -92,12 +82,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Join RoyelPay',
-                    style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.white),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Join GURU-PAY',
+                        style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.white),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.flash_on, color: Colors.orange, size: 22),
+                        onPressed: () {
+                          final r = DateTime.now().millisecond;
+                          _name.text = 'Referral Test $r';
+                          _email.text = 'ref_test$r@gmail.com';
+                          _password.text = 'password123';
+                        },
+                        tooltip: 'Auto-fill for testing',
+                      ),
+                    ],
                   ),
                   const Text('Start your enterprise journey', style: TextStyle(color: AppColors.textBody, fontSize: 13)),
-                  const SizedBox(height: 50),
+                  const SizedBox(height: 40),
 
                   // Glass Card
                   ClipRRect(
@@ -133,23 +138,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               obscure: _obscurePassword,
                               onToggle: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
+                            const SizedBox(height: 20),
+                            _buildTextField(
+                              controller: _referralCode,
+                              label: 'Referral Code (Optional)',
+                              icon: Icons.card_giftcard_rounded,
+                            ),
                             const SizedBox(height: 40),
-                            SizedBox(
+                            Obx(() => SizedBox(
                               width: double.infinity,
                               height: 55,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : _register,
+                                onPressed: _authController.isLoading.value ? null : _register,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   elevation: 5,
                                   shadowColor: AppColors.primary.withOpacity(0.4),
                                 ),
-                                child: _isLoading 
+                                child: _authController.isLoading.value 
                                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
                                   : const Text('Create Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                               ),
-                            ),
+                            )),
+                            const SizedBox(height: 20),
+                            // Google Register Button
+                            Obx(() => SizedBox(
+                              width: double.infinity,
+                              height: 55,
+                              child: OutlinedButton.icon(
+                                onPressed: _authController.isLoading.value ? null : () => _authController.googleSignIn(),
+                                icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_\"G\"_logo.svg/1200px-Google_\"G\"_logo.svg.png', height: 22),
+                                label: const Text('Sign up with Google', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  backgroundColor: Colors.white.withOpacity(0.05),
+                                ),
+                              ),
+                            )),
                           ],
                         ),
                       ),
@@ -158,7 +185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   
                   const SizedBox(height: 40),
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Get.back(),
                     child: RichText(
                       text: const TextSpan(
                         text: "Already a member? ",
@@ -180,7 +207,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             left: 20,
             child: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Get.back(),
             ),
           ),
         ],
@@ -209,6 +236,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: TextFormField(
             controller: controller,
             obscureText: obscure,
+            keyboardType: label.toLowerCase().contains('email') ? TextInputType.emailAddress : TextInputType.text,
             style: const TextStyle(color: Colors.white, fontSize: 15),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: Colors.white24, size: 20),

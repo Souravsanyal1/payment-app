@@ -1,12 +1,37 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../core/constants/app_colors.dart';
 
 class SupportScreen extends StatelessWidget {
-  const SupportScreen({super.key});
+  final bool isTab;
+  const SupportScreen({super.key, this.isTab = true});
 
   @override
   Widget build(BuildContext context) {
+    final content = SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10),
+          _buildGlassSupportHeader(),
+          const SizedBox(height: 40),
+          const Text('SUPPORT TICKETS', style: TextStyle(color: AppColors.textBody, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          const SizedBox(height: 20),
+          _ticketTile('Transaction: USDT Deposit', 'Pending', Colors.orange, 'ID: #GP8831'),
+          const SizedBox(height: 12),
+          _ticketTile('API Key Activation', 'Resolved', AppColors.success, 'ID: #GP1204'),
+          const SizedBox(height: 40),
+          _buildFAQSection(),
+          const SizedBox(height: 120), // Space for FAB/Nav
+        ],
+      ),
+    );
+
+    if (isTab) return content;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -15,31 +40,15 @@ class SupportScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            _buildGlassSupportHeader(),
-            const SizedBox(height: 40),
-            const Text('SUPPORT TICKETS', style: TextStyle(color: AppColors.textBody, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            const SizedBox(height: 20),
-            _ticketTile('Transaction: USDT Deposit', 'Pending', Colors.orange, 'ID: #RP8831'),
-            const SizedBox(height: 12),
-            _ticketTile('API Key Activation', 'Resolved', AppColors.success, 'ID: #RP1204'),
-            const SizedBox(height: 40),
-            _buildFAQSection(),
-          ],
-        ),
-      ),
+      body: content,
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          Get.snackbar('New Ticket', 'Support ticketing is being migrated!', snackPosition: SnackPosition.BOTTOM, backgroundColor: AppColors.primary, colorText: Colors.white);
+        },
         backgroundColor: AppColors.primary,
-        elevation: 8,
         child: const Icon(Icons.add_comment_rounded, color: Colors.white),
       ),
     );

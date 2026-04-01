@@ -1,57 +1,115 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import '../../core/constants/app_colors.dart';
+import '../../controllers/auth_controller.dart';
+import '../../services/firestore_service.dart';
+import '../../models/user_model.dart';
 
 class AffiliateScreen extends StatelessWidget {
   const AffiliateScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const referralLink = 'https://royelpay.com/ref/user123';
+    final AuthController _authController = Get.find();
+    final FirestoreService _firestore = FirestoreService();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Partner Program', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+    return Obx(() {
+      final firebaseUser = _authController.firebaseUser;
+      if (firebaseUser == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
+      return StreamBuilder<UserModel>(
+        stream: _firestore.userStream(firebaseUser.uid),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          final userData = snapshot.data!;
+          final referralLink = 'https://guru-pay.web.app/register?ref=${userData.id}';
+
+          return StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _firestore.userTransactionsStream(userData.id),
+            builder: (context, txSnapshot) {
+              return Scaffold(
+                backgroundColor: AppColors.background,
+                appBar: AppBar(
+                  title: const Text('Partner Program', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
+                    onPressed: () => Get.back(),
+                  ),
+                ),
+                body: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          const SizedBox(height: 20),
+                          _buildPremiumCommissionCard(userData),
+                          const SizedBox(height: 40),
+                          const Text('GROW YOUR NETWORK', style: TextStyle(color: AppColors.textBody, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          const SizedBox(height: 15),
+                          _buildReferralSection(context, referralLink),
+                          const SizedBox(height: 40),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Recent Referrals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text('Live Feed', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                        ]),
+                      ),
+                    ),
+                    _buildReferralHistory(txSnapshot),
+                    const SliverToBoxAdapter(child: SizedBox(height: 30)),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+      );
+    });
+  }
+
+  Widget _buildReferralHistory(AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+    if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
+    final refs = snapshot.data!.where((tx) => tx['type'] == 'referral_bonus').toList();
+    
+    if (refs.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(40.0),
+            child: Text('No referral earnings yet', style: TextStyle(color: Colors.white38)),
+          ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            _buildPremiumCommissionCard(),
-            const SizedBox(height: 40),
-            const Text('GROW YOUR NETWORK', style: TextStyle(color: AppColors.textBody, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-            const SizedBox(height: 15),
-            _buildReferralSection(context, referralLink),
-            const SizedBox(height: 40),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Recent Referrals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                Text('See All', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _historyTile('Kamal Hasan', '+\$5.00', 'Success'),
-            const SizedBox(height: 12),
-            _historyTile('Jasmine Akter', '+\$2.50', 'Success'),
-            const SizedBox(height: 30),
-          ],
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final tx = refs[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _historyTile(tx['user_email'] ?? 'Referral Bonus', '+\$${tx['amount'].toStringAsFixed(2)}', 'Success'),
+            );
+          },
+          childCount: refs.length,
         ),
       ),
     );
   }
 
-  Widget _buildPremiumCommissionCard() {
+  Widget _buildPremiumCommissionCard(UserModel user) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: Stack(
@@ -82,9 +140,9 @@ class AffiliateScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('TOTAL EARNINGS', style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  const Text(
-                    '\$125.50',
-                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -1),
+                  Text(
+                    '\$${user.referralEarnings.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -1),
                   ),
                   SizedBox(
                     height: 40,
@@ -133,9 +191,7 @@ class AffiliateScreen extends StatelessWidget {
                 IconButton(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: link));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Link Copied!'), backgroundColor: AppColors.primary),
-                    );
+                    Get.snackbar('Copied', 'Link Copied!', snackPosition: SnackPosition.TOP, backgroundColor: AppColors.primary, colorText: Colors.white);
                   },
                   icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
                 ),

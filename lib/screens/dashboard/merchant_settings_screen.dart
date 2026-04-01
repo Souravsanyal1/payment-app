@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
-import '../../services/auth_service.dart';
+import '../../controllers/auth_controller.dart';
 import '../../services/firestore_service.dart';
 import '../../models/user_model.dart';
 
@@ -16,12 +16,11 @@ class MerchantSettingsScreen extends StatefulWidget {
 
 class _MerchantSettingsScreenState extends State<MerchantSettingsScreen> {
   bool _isKeyVisible = false;
+  final AuthController _authController = Get.find();
+  final FirestoreService _firestore = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    final firestore = FirestoreService();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -30,38 +29,43 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
         ),
       ),
-      body: StreamBuilder<UserModel>(
-        stream: firestore.userStream(authService.user!.uid),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-          final user = snapshot.data!;
+      body: Obx(() {
+        final firebaseUser = _authController.firebaseUser;
+        if (firebaseUser == null) return const Center(child: CircularProgressIndicator());
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                _buildApiCard(context, user.apiKey),
-                const SizedBox(height: 40),
-                const Text('MERCHANT INSIGHTS', style: TextStyle(color: AppColors.textBody, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                const SizedBox(height: 20),
-                _summaryTile('Total Earning', '\$${user.dailyEarnings.toStringAsFixed(2)}', Icons.monetization_on_outlined, AppColors.success),
-                const SizedBox(height: 12),
-                _summaryTile('Settlement Status', 'Verified & Active', Icons.verified_user_outlined, AppColors.primary),
-                const SizedBox(height: 40),
-                _buildSecurityAlert(),
-                const SizedBox(height: 50),
-                _buildFooterActions(),
-                const SizedBox(height: 40),
-              ],
-            ),
-          );
-        },
-      ),
+        return StreamBuilder<UserModel>(
+          stream: _firestore.userStream(firebaseUser.uid),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            final user = snapshot.data!;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  _buildApiCard(context, user.apiKey),
+                  const SizedBox(height: 40),
+                  const Text('MERCHANT INSIGHTS', style: TextStyle(color: AppColors.textBody, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                  const SizedBox(height: 20),
+                  _summaryTile('Total Earning', '\$${user.dailyEarnings.toStringAsFixed(2)}', Icons.monetization_on_outlined, AppColors.success),
+                  const SizedBox(height: 12),
+                  _summaryTile('Settlement Status', 'Verified & Active', Icons.verified_user_outlined, AppColors.primary),
+                  const SizedBox(height: 40),
+                  _buildSecurityAlert(),
+                  const SizedBox(height: 50),
+                  _buildFooterActions(),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            );
+          },
+        );
+      }),
     );
   }
 
@@ -108,7 +112,7 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen> {
             child: ElevatedButton.icon(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: apiKey));
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API Key copied to clipboard'), backgroundColor: AppColors.primary));
+                Get.snackbar('Copied', 'API Key copied to clipboard', snackPosition: SnackPosition.TOP, backgroundColor: AppColors.primary, colorText: Colors.white);
               },
               icon: const Icon(Icons.copy_rounded, size: 18),
               label: const Text('COPY SECRET KEY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -164,9 +168,9 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.error.withOpacity(0.2)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
+          const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
           const SizedBox(width: 15),
           Expanded(
             child: Text(
