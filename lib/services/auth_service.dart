@@ -18,18 +18,32 @@ class AuthService with ChangeNotifier {
   Future<UserCredential?> signUp(String email, String password) async {
     try {
       return await _auth.createUserWithEmailAndPassword(email: email, password: password);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthError(e);
     } catch (e) {
-      debugPrint('SignUp Error: $e');
-      rethrow;
+      throw 'An unexpected error occurred. Please try again.';
     }
   }
 
   Future<UserCredential?> signIn(String email, String password) async {
     try {
       return await _auth.signInWithEmailAndPassword(email: email, password: password);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthError(e);
     } catch (e) {
-      debugPrint('SignIn Error: $e');
-      rethrow;
+      throw 'An unexpected error occurred. Please try again.';
+    }
+  }
+
+  String _handleAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found': return 'No user found with this email.';
+      case 'wrong-password': return 'Incorrect password.';
+      case 'email-already-in-use': return 'This email is already registered.';
+      case 'invalid-email': return 'Please enter a valid email address.';
+      case 'weak-password': return 'Password is too weak.';
+      case 'operation-not-allowed': return 'Email/Password sign-in is not enabled.';
+      default: return e.message ?? 'Authentication failed.';
     }
   }
 
@@ -37,3 +51,4 @@ class AuthService with ChangeNotifier {
     await _auth.signOut();
   }
 }
+

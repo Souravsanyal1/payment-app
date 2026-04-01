@@ -5,6 +5,7 @@ import 'dart:math';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // Users
   Future<void> createUser(String uid, String name, String email) async {
     final apiKey = _generateApiKey();
     await _db.collection('users').doc(uid).set({
@@ -12,6 +13,7 @@ class FirestoreService {
       'email': email,
       'balance': 0.0,
       'api_key': apiKey,
+      'role': 'user', // Default role
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
   }
@@ -52,4 +54,37 @@ class FirestoreService {
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
   }
+
+  Stream<List<Map<String, dynamic>>> userTransactionsStream(String uid) {
+    return _db.collection('transactions')
+        .where('user_id', isEqualTo: uid)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  Stream<List<Map<String, dynamic>>> pendingTransactionsStream() {
+    return _db.collection('transactions')
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  Future<void> approveTransaction(String transactionId, String userId, double amount) async {
+    final batch = _db.batch();
+    
+    // Update transaction status
+    batch.update(_db.collection('transactions').doc(transactionId), {
+      'status': 'success',
+      'approved_at': DateTime.now().millisecondsSinceEpoch,
+    });
+
+    // Update user balance
+    batch.update(_db.collection('users').doc(userId), {
+      'balance': FieldValue.increment(amount),
+    });
+
+    await batch.commit();
+  }
 }
+
